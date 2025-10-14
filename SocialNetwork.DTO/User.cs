@@ -21,7 +21,7 @@ namespace SocialNetwork.DTO
 
         [Required]
         [MinLength(8)]
-        public string Password { get; set; }
+        public string PasswordHash { get; set; }
 
         public List<string> Interests { get; set; } = new List<string>();
 
