@@ -1,62 +1,77 @@
-﻿using BCrypt.Net;
-using MongoDB.Driver;
-using Org.BouncyCastle.Crypto.Generators;
+﻿using MongoDB.Driver;
 using SocialNetwork.BLL.Abstract;
 using SocialNetwork.BLL.Concrete;
 using SocialNetwork.Core.Models;
+using SocialNetwork.DAL.Abstract;
 using SocialNetwork.DAL.Concrete;
 using SocialNetwork.DAL.MgContext;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace SocialNetwork
 {
-    internal class Program
+    public class Program
     {
+        private static IUserService _userService;
+        private static IPostService _postService;
+        private static User _currentUser;
         static async Task Main(string[] args)
         {
             string connectionString = "mongodb://localhost:27017";
             string databaseName = "SocialNetworkDB";
             var context = new MongoDbContext(connectionString, databaseName);
+
             var userRepo = new UserRepository(context);
             var postRepo = new PostRepository(context);
-            var posts = await postRepo.GetAllAsync();
+
+            await userRepo.CreateEmailIndexAsync();
+
+            _userService = new UserService(userRepo);
+            _postService = new PostService(postRepo, userRepo);
+
             //pass 12341234 myemail@gmail.com
 
             Console.WriteLine("Welcome to my SocialNetwork");
 
             while (true)
             {
+                if (_currentUser == null)
+                    await ShowMainMenu();
+                else
+                    await ShowUserMenu();
+            }
+
+        }
+        private static async Task ShowMainMenu()
+        {
                 Console.WriteLine("\nSelect option");
                 Console.WriteLine("r - Register");
                 Console.WriteLine("l - Login");
                 Console.WriteLine("q - Quit");
                 var line = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(line)) continue;
+                if (string.IsNullOrWhiteSpace(line)) return;
                 var c = char.ToLowerInvariant(line[0]);
                 switch (c)
                 {
                     case 'q':
-                        return;
+                        Environment.Exit(0);
+                        break;
                     case 'r':
-                        await Registration(userRepo);
+                        await Registration();
                         break;
                     case 'l':
-                        await Login(userRepo, postRepo);
+                        await Login();
 
                         break;
                     default:
                         Console.WriteLine("Unknown command");
                         break;
                 }
-            }
-
-
-
+            
         }
-
-        private static async Task Login(UserRepository userRepo, PostRepository postRepo)
+        private static async Task Login()
         {
-            Console.WriteLine("\nLogining");
+            Console.WriteLine("\nLogining in");
             Console.Write("Enter your email:");
             var email = Console.ReadLine();
             Console.Write("Enter your password:");
@@ -66,160 +81,24 @@ namespace SocialNetwork
                 Console.WriteLine("Error: Email or password is null.");
                 return;
             }
-            var user = await userRepo.GetUserByEmailAsync(email);
-            if (user == null)
+            var user = await _userService.AuthenticateUserAsync(email, password);
+
+            if (user != null)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Error: User with this email doesn't exists.");
-                Console.ResetColor();
-                return;
-            }
-            var isPasswordValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
-            if (isPasswordValid)
-            {
+                _currentUser = user;
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"Login successful! Congratulations!, {user.Email}!");
+                Console.WriteLine($"Login successful! Welcome, {_currentUser.FirstName}!");
                 Console.ResetColor();
-                UserMenu(userRepo, postRepo, email);
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Error: Incorrect password.");
+                Console.WriteLine("Error: Invalid email or password.");
                 Console.ResetColor();
             }
         }
-
-        private static void UserMenu(UserRepository userRepo, PostRepository postRepo, string email)
+        private static async Task Registration()
         {
-            while (true)
-            {
-                Console.WriteLine("\nSelect option");
-                Console.WriteLine("1 - View Profile");
-                Console.WriteLine("2 - Create Post");
-                Console.WriteLine("3 - Search other users");
-                Console.WriteLine("q - Logout");
-                var line = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                var c = char.ToLowerInvariant(line[0]);
-                switch (c)
-                {
-                    case 'q':
-                        return;
-                    case '1':
-                        ViewUserProfile(userRepo, postRepo, email);
-                        break;
-                    case '2':
-                        CreatePost(userRepo,postRepo, email);
-                        break;
-                    case '3':
-                        SearchOtherUsers(userRepo, postRepo,email);
-                        break;
-                    default:
-                        Console.WriteLine("Unknown command");
-                        break;
-                }
-            }
-            static void CreatePost(UserRepository userRepo, PostRepository postRepo, string email)
-            {
-                var user = userRepo.GetUserByEmailAsync(email).Result;
-                Console.WriteLine("Enter context of post:");
-                var content = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(content))
-                {
-                    Console.WriteLine("Error: Post content cannot be empty.");
-                    return;
-                }
-                var newPost = new Post
-                {
-                    UserId = user.Id,
-                    Content = content,
-                    CreatedAt = DateTime.UtcNow,
-                    Reactions = new List<Reaction>(),
-                    Comments = new List<Comment>()
-
-                };
-                postRepo.CreateAsync(newPost).Wait();
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine("Post created successfully!");
-                Console.ResetColor();
-
-
-            }
-            static void ViewUserProfile(UserRepository userRepo, PostRepository postRepo, string email)
-            {
-                var user = userRepo.GetUserByEmailAsync(email).Result;
-                if (user == null)
-                {
-                    Console.WriteLine("User not found.");
-                    return;
-                }
-                var userService = new UserService();
-                var postService = new PostService();
-
-                {
-                    userService.UserInfo(user);
-                    bool flowControl = postService.ShowUserPosts(postRepo, user);
-                    if (!flowControl)
-                    {
-                        return;
-                    }
-
-                }
-            }
-            static void SearchOtherUsers(UserRepository userRepo, PostRepository postRepo,string email)
-            {
-                Console.WriteLine("Enter email(example@gmail.com) or username(example):");
-                var input = Console.ReadLine();
-                if (string.IsNullOrWhiteSpace(input))
-                {
-                    Console.WriteLine("Error: Input cannot be empty.");
-                    return;
-                }
-                if (!input.EndsWith("@gmail.com"))
-                    input += "@gmail.com";
-                ViewUserProfile(userRepo, postRepo, input);
-
-                while (true)
-                {
-                    Console.WriteLine("\nSelect option");
-                    Console.WriteLine("1 - Add to friends");
-                    Console.WriteLine("2 - Follow");
-                    Console.WriteLine("3 - View posts");
-                    Console.WriteLine("q - Back");
-                    var line = Console.ReadLine();
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    var c = char.ToLowerInvariant(line[0]);
-                    switch (c)
-                    {
-                        case 'q':
-                            return;
-                        case '1':
-                            var userService = new UserService();
-                            var mainUser = userRepo.GetUserByEmailAsync(email).Result;
-                            var friend = userRepo.GetUserByEmailAsync(input).Result;
-                            userService.AddToFriends(mainUser, friend, userRepo);
-                            break;
-                        case '2':
-                            Console.WriteLine("Not ready");
-                            break;
-                        case '3':
-                            Console.WriteLine("Not ready");
-                            break;
-                        default:
-                            Console.WriteLine("Unknown command");
-                            break;
-                    }
-                }
-
-            }
-            
-        }
-
-
-        private static async Task Registration(UserRepository userRepo)
-        {
-            await userRepo.CreateEmailIndexAsync();
 
             Console.WriteLine("\nCreate new profile");
 
@@ -249,7 +128,7 @@ namespace SocialNetwork
             }
 
 
-            if (await ValidateInput(firstname, lastname, email, password, passwordConfirm, userRepo))
+            if (await _userService.ValidateUserInput(firstname, lastname, email, password, passwordConfirm))
             {
                 try
                 {
@@ -262,7 +141,7 @@ namespace SocialNetwork
                         Interests = interests
                     };
 
-                    await userRepo.CreateAsync(newUser);
+                    await _userService.CreateUserAsync(newUser);
 
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Congrats!!! You are registered ");
@@ -281,44 +160,150 @@ namespace SocialNetwork
                     Console.ResetColor();
                 }
             }
-            static async Task<bool> ValidateInput(string? firstname, string? lastname, string? email, string? password, string? passwordConfirm, UserRepository userRepo)
+        }
+        private static async Task ShowUserMenu()
+        {
+            Console.WriteLine($"\n--- Logged in as {_currentUser.Email} ---");
+            while (true)
             {
-                if (string.IsNullOrWhiteSpace(firstname))
-                {
-                    Console.WriteLine("Error: Firstname is null.");
-                    return false;
-                }
-                if (string.IsNullOrWhiteSpace(lastname))
-                {
-                    Console.WriteLine("Error: Lastname is null.");
-                    return false;
-                }
-                var emailRegex = new Regex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$");
-                if (!emailRegex.IsMatch(email))
-                {
-                    Console.WriteLine("Error: Incorrect input (example@gmail.com).");
-                    return false;
-                }
-                if (await userRepo.UserExistsAsync(email))
-                {
-                    Console.WriteLine("Error: This email is already exists.");
-                    return false;
-                }
+                Console.WriteLine("\nSelect option");
+                Console.WriteLine("1 - View My Profile & Posts");
+                Console.WriteLine("2 - Create Post");
+                Console.WriteLine("3 - Search other users");
+                Console.WriteLine("q - Logout");
 
-                if (password.Length < 8)
-                {
-                    Console.WriteLine("Error: Password must contain at least 8 characters.");
-                    return false;
-                }
+                var line = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var c = char.ToLowerInvariant(line[0]);
 
-                if (password != passwordConfirm)
+                switch (c)
                 {
-                    Console.WriteLine("Error: The passwords do not match.");
-                    return false;
+                    case 'q':
+                        _currentUser = null;
+                        Console.WriteLine("You have been logged out.");
+                        return;
+                    case '1':
+                         _userService.UserInfo(_currentUser);
+                         await _postService.ShowUserPosts(_currentUser);
+                         await PostsMenu(_currentUser);
+                        break;
+                    case '2':
+                        await _postService.CreatePost(_currentUser.Email);
+                        break;
+                    case '3':
+                        await SearchOtherUsers();
+                        break;
+                    default:
+                        Console.WriteLine("Unknown command");
+                        break;
                 }
-                return true;
             }
         }
-    
+        private static async Task SearchOtherUsers()
+        {
+            Console.WriteLine("Enter email(example@gmail.com) or username(example):");
+            var input = Console.ReadLine();
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                Console.WriteLine("Error: Input cannot be empty.");
+                return;
+            }
+            if (!input.Contains("@"))
+                input += "@gmail.com";
+
+            var otherUser = await _userService.GetUserByEmailAsync(input);
+
+            if (otherUser == null)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"User with email '{input}' not found.");
+                Console.ResetColor();
+                return;
+            }
+
+            if (otherUser.Id == _currentUser.Id)
+            {
+                Console.WriteLine("You cannot search for yourself.");
+                return;
+            }
+
+            _userService.UserInfo(otherUser);
+
+            while (true)
+            {
+                Console.WriteLine("\nSelect option");
+                Console.WriteLine("1 - Add to friends/Remove from friends");
+                Console.WriteLine("2 - Follow/Unfollow");
+                Console.WriteLine("3 - View posts");
+                Console.WriteLine("q - Back to main menu");
+                var line = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                var c = char.ToLowerInvariant(line[0]);
+                switch (c)
+                {
+                    case 'q':
+                        return;
+                    case '1':
+                        _userService.AddOrRemoveFriends(_currentUser, otherUser);
+                        break;
+                    case '2':
+                        _userService.FollowOrUnfollow(_currentUser, otherUser);
+                        break;
+                    case '3':
+                        await _postService.ShowUserPosts(otherUser);
+                        await PostsMenu(otherUser);
+                        break;
+                    default:
+                        Console.WriteLine("Unknown command");
+                        break;
+                }
+            }
+
+        }
+        static async Task PostsMenu(User otherUser)
+        {
+            Post localPost = null;
+            while (true)
+            {
+                Console.WriteLine("\nSelect option");
+                Console.WriteLine("1 - React on post");
+                Console.WriteLine("2 - Remove reaction");
+                Console.WriteLine("3 - Comment on post");
+                Console.WriteLine("q - Back to main menu");
+                var line = Console.ReadLine();
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                var c = char.ToLowerInvariant(line[0]);
+                switch (c)
+                {
+                    case 'q':
+                        return;
+                    case '1':
+                        var selectedPost = await _postService.ReactToPost(_currentUser, otherUser);
+                        localPost = selectedPost;
+                        break;
+                    case '2':
+                        if (localPost == null)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("Please select a post first by choosing option 1.");
+                            Console.ResetColor();
+                        }
+                        else
+                        {
+                            await _postService.RemoveReaction(_currentUser, localPost);
+                        }
+                        break;
+                    case '3':
+                        await _postService.AddCommentToPost(_currentUser, otherUser);
+                        break;
+                    default:
+                        Console.WriteLine("Unknown command");
+                        break;
+                }
+            }
+
+        }
+
     }
 }

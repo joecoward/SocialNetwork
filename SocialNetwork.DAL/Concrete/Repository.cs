@@ -2,6 +2,7 @@
 using MongoDB.Driver;
 using SocialNetwork.DAL.Abstract;
 using SocialNetwork.DAL.MgContext;
+using static MongoDB.Driver.WriteConcern;
 
 namespace SocialNetwork.DAL.Concrete
 {
@@ -19,7 +20,8 @@ namespace SocialNetwork.DAL.Concrete
 
         public virtual async Task DeleteAsync(string id)
         {
-            throw new NotImplementedException();
+            var filter = Builders<TEntity>.Filter.Eq("Id", new ObjectId(id));
+            await _collection.DeleteOneAsync(filter);
         }
 
         public virtual async Task<List<TEntity>> GetAllAsync()

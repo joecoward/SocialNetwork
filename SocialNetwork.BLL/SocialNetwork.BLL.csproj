@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SocialNetwork.Core\SocialNetwork.Core.csproj" />
     <ProjectReference Include="..\SocialNetwork.DAL\SocialNetwork.DAL.csproj" />
   </ItemGroup>
