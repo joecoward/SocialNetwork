@@ -44,6 +44,8 @@ namespace SocialNetwork
         }
         private static async Task ShowMainMenu()
         {
+
+                
                 Console.WriteLine("\nSelect option");
                 Console.WriteLine("r - Register");
                 Console.WriteLine("l - Login");
@@ -163,6 +165,7 @@ namespace SocialNetwork
         }
         private static async Task ShowUserMenu()
         {
+            await _postService.SteamPosts();
             Console.WriteLine($"\n--- Logged in as {_currentUser.Email} ---");
             while (true)
             {
@@ -263,13 +266,11 @@ namespace SocialNetwork
         }
         static async Task PostsMenu(User otherUser)
         {
-            Post localPost = null;
             while (true)
             {
                 Console.WriteLine("\nSelect option");
-                Console.WriteLine("1 - React on post");
-                Console.WriteLine("2 - Remove reaction");
-                Console.WriteLine("3 - Comment on post");
+                Console.WriteLine("1 - React on post/Remove reaction");
+                Console.WriteLine("2 - Comment on post");
                 Console.WriteLine("q - Back to main menu");
                 var line = Console.ReadLine();
                 if (string.IsNullOrWhiteSpace(line)) continue;
@@ -279,22 +280,9 @@ namespace SocialNetwork
                     case 'q':
                         return;
                     case '1':
-                        var selectedPost = await _postService.ReactToPost(_currentUser, otherUser);
-                        localPost = selectedPost;
+                        await _postService.ReactOrRemoveToPost(_currentUser, otherUser);
                         break;
                     case '2':
-                        if (localPost == null)
-                        {
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("Please select a post first by choosing option 1.");
-                            Console.ResetColor();
-                        }
-                        else
-                        {
-                            await _postService.RemoveReaction(_currentUser, localPost);
-                        }
-                        break;
-                    case '3':
                         await _postService.AddCommentToPost(_currentUser, otherUser);
                         break;
                     default:

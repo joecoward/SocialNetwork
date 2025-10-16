@@ -1,6 +1,7 @@
 ﻿using SocialNetwork.BLL.Abstract;
 using SocialNetwork.Core.Models;
 using SocialNetwork.DAL.Abstract;
+using System.Linq;
 
 namespace SocialNetwork.BLL.Concrete
 {
@@ -161,7 +162,7 @@ namespace SocialNetwork.BLL.Concrete
             Console.WriteLine("Comment added successfully!");
             Console.ResetColor();
         }
-        public async Task<Post> ReactToPost(User currentUser, User otherUser)
+        public async Task<Post> ReactOrRemoveToPost(User currentUser, User otherUser)
         {
             var  posts = await _postRepository.GetPostsByUserIdAsync(otherUser.Id);
             if (posts == null || posts.Count == 0)
@@ -193,7 +194,32 @@ namespace SocialNetwork.BLL.Concrete
             if (selectedPost.Reactions.Any(r => r.UserId == currentUser.Id && r.Type == reactionTypes[reactionIndex - 1]))
             {
                 Console.WriteLine("You have already reacted with this type to this post.");
-                return selectedPost;
+                Console.WriteLine("Do you want to remove your reaction? (yes/no)");
+                var response = Console.ReadLine();
+                if (response?.ToLower() != "yes")
+                {
+                    return selectedPost;
+                }
+                else
+                {
+                    var filter = selectedPost.Reactions.Where(r => r.UserId == currentUser.Id).Count();
+                    for (int i = 0; i < filter; i++)
+                    {
+                        Console.WriteLine($"{i + 1}. {selectedPost.Reactions[i].Type} (at {selectedPost.Reactions[i].CreatedAt})");
+                    }
+                    if (!int.TryParse(Console.ReadLine(), out int temp) || temp < 1 || temp > selectedPost.Reactions.Count)
+                    {
+                        throw new Exception("Invalid selection.");
+
+                    }
+                    var reactionToRemove = selectedPost.Reactions[reactionIndex - 1];
+                    selectedPost.Reactions.Remove(reactionToRemove);
+                    await _postRepository.UpdateAsync(selectedPost);
+
+                    Console.ForegroundColor = ConsoleColor.Green;
+                    Console.WriteLine($"Reaction removed successfully!");
+                    Console.ResetColor();
+                }
             }
 
             var selectedReactionType = reactionTypes[reactionIndex - 1];
@@ -216,25 +242,70 @@ namespace SocialNetwork.BLL.Concrete
             Console.ResetColor();
             return selectedPost;
         }
-        public async Task RemoveReaction(User user,Post selectedPost)
+
+        public async Task SteamPosts()
         {
-            for (int i = 0; i < selectedPost.Reactions.Count; i++)
+            var allPosts = await _postRepository.GetAllAsync();
+            var filteredPosts = allPosts.OrderByDescending(p => p.CreatedAt).ToList();
+            if (filteredPosts == null || filteredPosts.Count == 0)
             {
-                Console.WriteLine($"{i + 1}. {selectedPost.Reactions[i].Type} (at {selectedPost.Reactions[i].CreatedAt})");
-            }
-            if (!int.TryParse(Console.ReadLine(), out int reactionIndex) || reactionIndex < 1 || reactionIndex > selectedPost.Reactions.Count)
-            {
-                Console.WriteLine("Invalid selection.");
+                Console.WriteLine("No posts available.");
                 return;
             }
-            var reactionToRemove = selectedPost.Reactions[reactionIndex - 1];
-            selectedPost.Reactions.Remove(reactionToRemove);
-            await _postRepository.UpdateAsync(selectedPost);
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"Reaction removed successfully!");
-            Console.ResetColor();
+            else
+            {
+                Console.WriteLine($"\nAll Posts:\n");
+                foreach (var post in filteredPosts)
+                {
+                    Console.WriteLine($"////////////////////////////////////\n");
+                    Console.WriteLine($"Content: {post.Content}");
+                    Console.WriteLine($"Created At: {post.CreatedAt}");
+                    Console.WriteLine("------------------------------------");
+                    var postReactions = post.Reactions;
+                    if (postReactions != null && postReactions.Count > 0)
+                    {
+                        Console.WriteLine("Reactions:");
+                        foreach (var reaction in postReactions)
+                        {
+                            Console.WriteLine($"- {reaction.Type} (at {reaction.CreatedAt})");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("No reactions on this post.");
+                    }
+                    var postComments = post.Comments;
+                    if (postComments != null && postComments.Count > 0)
+                    {
+                        Console.WriteLine("Comments:");
+                        foreach (var comment in postComments)
+                        {
+                            Console.WriteLine($"- {comment.Text} (at {comment.CreatedAt})");
+                            var commentReactions = comment.Reactions;
+                            if (commentReactions != null && commentReactions.Count > 0)
+                            {
+                                Console.WriteLine("  Reactions:");
+                                foreach (var reaction in commentReactions)
+                                {
+                                    Console.WriteLine($"  - {reaction.Type} (at {reaction.CreatedAt})");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("  No reactions on this comment.");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("No comments on this post.");
+                    }
+                    Console.WriteLine($"\n////////////////////////////////////\n\n\n\n");
+                }
+            }
             return;
         }
+
+
     }
 }
