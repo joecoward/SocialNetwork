@@ -1,4 +1,5 @@
-﻿using MongoDB.Driver;
+﻿using Microsoft.Extensions.Configuration;
+using MongoDB.Driver;
 using SocialNetwork.BLL.Abstract;
 using SocialNetwork.BLL.Concrete;
 using SocialNetwork.Core.Models;
@@ -17,8 +18,17 @@ namespace SocialNetwork
         private static User _currentUser;
         static async Task Main(string[] args)
         {
-            string connectionString = "mongodb://localhost:27017";
-            string databaseName = "SocialNetworkDB";
+            
+            var builder = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+
+
+            IConfiguration config = builder.Build();
+
+            string connectionString = config.GetConnectionString("MongoDb");
+            string databaseName = config["DatabaseName"];
+
             var context = new MongoDbContext(connectionString, databaseName);
 
             var userRepo = new UserRepository(context);
