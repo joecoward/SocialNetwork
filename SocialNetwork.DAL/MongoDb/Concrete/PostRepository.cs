@@ -1,9 +1,9 @@
 ﻿using MongoDB.Driver;
 using SocialNetwork.Core.Models;
-using SocialNetwork.DAL.Abstract;
-using SocialNetwork.DAL.MgContext;
+using SocialNetwork.DAL.MongoDb.Abstract;
+using SocialNetwork.DAL.MongoDb.MgContext;
 
-namespace SocialNetwork.DAL.Concrete
+namespace SocialNetwork.DAL.MongoDb.Concrete
 {
     public class PostRepository :Repository<Post> ,IPostRepository
     {

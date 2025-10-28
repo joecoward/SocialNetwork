@@ -1,10 +1,10 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Driver;
-using SocialNetwork.DAL.Abstract;
-using SocialNetwork.DAL.MgContext;
+using SocialNetwork.DAL.MongoDb.Abstract;
+using SocialNetwork.DAL.MongoDb.MgContext;
 using static MongoDB.Driver.WriteConcern;
 
-namespace SocialNetwork.DAL.Concrete
+namespace SocialNetwork.DAL.MongoDb.Concrete
 {
     public class Repository<TEntity> : IRepository<TEntity> where TEntity : class
     {

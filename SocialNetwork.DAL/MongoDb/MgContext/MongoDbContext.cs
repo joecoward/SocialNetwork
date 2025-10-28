@@ -1,7 +1,7 @@
 ﻿using MongoDB.Driver;
 using SocialNetwork.Core.Models;
 
-namespace SocialNetwork.DAL.MgContext
+namespace SocialNetwork.DAL.MongoDb.MgContext
 {
     public class MongoDbContext
     {

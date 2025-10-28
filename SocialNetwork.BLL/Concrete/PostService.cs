@@ -1,6 +1,6 @@
 ﻿using SocialNetwork.BLL.Abstract;
 using SocialNetwork.Core.Models;
-using SocialNetwork.DAL.Abstract;
+using SocialNetwork.DAL.MongoDb.Abstract;
 using System.Linq;
 
 namespace SocialNetwork.BLL.Concrete

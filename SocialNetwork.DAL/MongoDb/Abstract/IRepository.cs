@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
 using MongoDB.Bson;
-namespace SocialNetwork.DAL.Abstract
+namespace SocialNetwork.DAL.MongoDb.Abstract
 {
     public interface IRepository<TEntity> where TEntity : class
     {

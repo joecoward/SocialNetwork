@@ -1,6 +1,6 @@
 ﻿using SocialNetwork.Core.Models;
 
-namespace SocialNetwork.DAL.Abstract
+namespace SocialNetwork.DAL.MongoDb.Abstract
 {
     public interface IPostRepository : IRepository<Post>
     {

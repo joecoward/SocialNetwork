@@ -1,8 +1,7 @@
 ﻿using MongoDB.Driver;
 using SocialNetwork.Core.Models;
 
-
-namespace SocialNetwork.DAL.Abstract
+namespace SocialNetwork.DAL.MongoDb.Abstract
 {
     public interface IUserRepository : IRepository<User>
     {
